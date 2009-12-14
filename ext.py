@@ -11,6 +11,18 @@ ua_kddi     = re.compile(r'^KDDI|^UP.Browser')
 ua_softbank = re.compile(r'^J-PHONE|^Vodafone|^SoftBank')
 
 class BaseHandler(webapp.RequestHandler):
+  def before_filter(self):
+    if self.is_docomo() and self.request.get('guid') != 'ON':
+      self.redirect(self.request.path + '?guid=ON')
+      raise "redirect"
+
+  def get(self):
+    try:
+      self.before_filter()
+      self.g()
+    except:
+      pass
+
   def header(self, name):
     if self.request.headers.has_key(name):
       return self.request.headers[name]
@@ -22,6 +34,13 @@ class BaseHandler(webapp.RequestHandler):
   def is_docomo(self):
     return ua_docomo.match(self.ua())
 
+  def is_docomo2(self):
+    re_cache = re.compile(r'\(.*c(\d+).*\)')
+    r = re_cache.search(self.header('user-agent'))
+    if (r and int(r.group(1)) == 500):
+      return True
+    return False
+
   def is_softbank(self):
     return ua_softbank.match(self.ua())
 
@@ -29,7 +48,9 @@ class BaseHandler(webapp.RequestHandler):
     return ua_kddi.match(self.ua())
 
   def enable_cookie(self):
-    pass
+    if (self.is_docomo() and not self.is_docomo2()):
+      return False
+    return True
 
   def mobile_id(self):
     if (self.is_docomo()):
