@@ -43,7 +43,7 @@ class MainHandler(webapp.RequestHandler):
       values = c.__dict__
       c.render(html, values)
     except Exception, e:
-      logging.error(e.message)
+      logging.error(e)
       self.__error()
 
   def __route(self, url):

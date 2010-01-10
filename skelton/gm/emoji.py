@@ -1,6 +1,7 @@
 from binascii import a2b_hex, b2a_hex
+import re
 
-encode = {
+encode_tbl = {
   1:('EE98BE', 'F660', 'EE818A'),
   2:('EE98BF', 'F665', 'EE8189'),
   3:('EE9980', 'F664', 'EE818B'),
@@ -1387,7 +1388,7 @@ encode = {
   2562:('', '', 'EE94BE')
 }
 
-decode_docomo = {
+decode_tbl_docomo = {
   'EE98BE':'1',
   'EE98BF':'2',
   'EE9980':'3',
@@ -1642,7 +1643,7 @@ decode_docomo = {
   'EE9D97':'252'
 }
 
-decode_ezweb = {
+decode_tbl_ezweb = {
   'F659':'1001',
   'F65A':'1002',
   'F65B':'1003',
@@ -2292,7 +2293,7 @@ decode_ezweb = {
   'F493':'1828'
 }
 
-decode_softbank = {
+decode_tbl_softbank = {
   'EE8081':'2001',
   'EE8082':'2002',
   'EE8083':'2003',
@@ -2780,12 +2781,18 @@ decode_softbank = {
   'EE94BE':'2562'
 }
 
-def repl(a, carrier):
-  if encode.has_key(int(a.group(1))):
-    code = encode[int(a.group(1))][carrier]
-    if code:
-      return a2b_hex(code)
-  return '[?]'
+def encode(str, controller):
+  pattern = "\$([0-9]+)\$"
+  if controller.is_docomo():
+    return re.sub(pattern, repl_docomo, str)
+  elif controller.is_ezweb():
+    return re.sub(pattern, repl_kddi, str)
+  elif controller.is_softbank():
+    return re.sub(pattern, repl_softbank, str)
+  return re.sub(pattern, '', str)
+
+def decode(str):
+  pass
 
 def repl_docomo(a):
   return repl(a, 0)
@@ -2795,3 +2802,11 @@ def repl_kddi(a):
 
 def repl_softbank(a):
   return repl(a, 2)
+
+def repl(a, carrier):
+  if encode_tbl.has_key(int(a.group(1))):
+    code = encode_tbl[int(a.group(1))][carrier]
+    if code:
+      return a2b_hex(code)
+  return '[?]'
+
