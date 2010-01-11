@@ -2783,11 +2783,11 @@ decode_tbl_softbank = {
 
 def encode(str, controller):
   pattern = "\$([0-9]+)\$"
-  if controller.is_docomo():
+  if controller.is_docomo:
     return re.sub(pattern, repl_docomo, str)
-  elif controller.is_ezweb():
+  elif controller.is_ezweb:
     return re.sub(pattern, repl_kddi, str)
-  elif controller.is_softbank():
+  elif controller.is_softbank:
     return re.sub(pattern, repl_softbank, str)
   return re.sub(pattern, '', str)
 

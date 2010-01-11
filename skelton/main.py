@@ -3,14 +3,15 @@ import sys
 import os
 
 from google.appengine.ext import webapp
+from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 
 class MainHandler(webapp.RequestHandler):
   def get(self):
-    self.__dispatch("get")
+    self.__dispatch()
 
   def post(self):
-    self.__dispatch("post")
+    self.__dispatch()
 
   def head(self):
     self.__bad_method()
@@ -28,7 +29,8 @@ class MainHandler(webapp.RequestHandler):
     self.error(500)
     self.response.out.write('500 Internal Server Error')
 
-  def __dispatch(self, method):
+  def __dispatch(self):
+    method = self.request.method.lower()
     route = self.__route(self.request.path)
     controller = "%sController" % (route['module'].capitalize())
     try:
@@ -39,9 +41,9 @@ class MainHandler(webapp.RequestHandler):
       c.before_filter()
       action()
       c.after_filter()
-      html = os.path.join(os.path.dirname(__file__), 'app/templates', route['module'], route['action'] + '.html')
+      template = os.path.join(os.path.dirname(__file__), 'app/templates', route['module'], route['action'] + '.html')
       values = c.__dict__
-      c.render(html, values)
+      c.render(template, values)
     except Exception, e:
       logging.error(e)
       self.__error()
@@ -61,11 +63,12 @@ class MainHandler(webapp.RequestHandler):
     logging.info("Run module:%s action:%s" % (module, action))
     return { 'module': module, 'action': action } 
 
+dirname = os.path.dirname(__file__)
+sys.path.append(dirname)
+template.register_template_library('gm.custom_filter')
 app = webapp.WSGIApplication([(r'.*', MainHandler)], debug=True)
 
 def main():
-  dirname = os.path.dirname(__file__)
-  sys.path.append(dirname)
   run_wsgi_app(app)
 
 if __name__ == '__main__':
