@@ -10,6 +10,10 @@ ua_docomo   = re.compile(r'^DoCoMo')
 ua_ezweb    = re.compile(r'^KDDI|^UP.Browser')
 ua_softbank = re.compile(r'^J-PHONE|^Vodafone|^SoftBank')
 
+""" redirece exception """
+class RedirectException(Exception):
+  pass
+
 """ Mobile Base Controller """
 class BaseController:
   def __init__(self, handler):
@@ -23,8 +27,15 @@ class BaseController:
 
   def before_filter(self):
     if self.request.method == "GET":
-      pass
+      self.ipblock()
+      self.guid()
+      self.required_uid()
+      self.regist()
     elif self.request.method == "POST":
+      self.ipblock()
+      self.required_uid()
+      self.regist()
+      self.check_csrf()
       if self.is_ezweb:
         self.request.charset = "ms932"
 
@@ -35,10 +46,7 @@ class BaseController:
       pass
 
   def render(self, path, values):
-    """ make html """
     html = template.render(path, values)
-
-    """ set content type & encode html"""
     if self.is_docomo:
       content_type = 'application/xhtml+xml; charset=UTF-8'
     elif self.is_ezweb:
@@ -46,15 +54,12 @@ class BaseController:
       html = unicode(html, 'utf-8').encode('ms932')
     else:
       content_type = 'text/html; charset=UTF-8'
-
-    """ emoji """
-    html = emoji.encode(html, self)
-
-    """ output """
+    html = emoji.encode(self, html)
+    html = self.replace_guid(html)
     self.response.headers['Content-Type'] = content_type
     self.response.out.write(html)
 
-  def halt_redirect(self, url):
+  def redirect(self, url):
     guid = ''
     if self.is_docomo:
       s = '&'
@@ -77,8 +82,9 @@ class BaseController:
   def csrf_token(self):
     return md5.new(csrf_secret + self.mobile_id()).hexdigest();
 
-  def check_csrf(self, token):
-    if token != self.csrf_token():
+  def check_csrf(self):
+    token = self.request.get('csrf')
+    if token != self.get_csrf_token():
       raise "invalid csrf"
 
   def header(self, name):
@@ -95,14 +101,53 @@ class BaseController:
       return self.header('x-jphone-uid')
     return ''
 
+  def param(self, key):
+    return self.request.get(key)
 
-def replace_guid(handler, str):
-  if handler.is_docomo:
-    regex = r'(action|href)="/(.+?)"'
-    return re.sub(regex, guidurl, str)
-  return str
+  def emoji_param(self, key):
+    v = self.param(key)
+    return emoji.decode(self, v)
 
-def guidurl(g):
+  """ filter """
+  def replace_guid(self, str):
+    if self.is_docomo:
+      regex = r'(action|href)="/(.*?)"'
+      return re.sub(regex, repl_guidurl, str)
+    return str
+
+  def ipblock(self):
+    pass
+
+  def guid(self):
+    """ fixme path """
+    if self.is_docomo and self.request.get('guid') != 'ON':
+      self.halt_redirect(self.request.path)
+
+  def required_uid(self):
+    if not self.mobile_id():
+      self.halt_redirect('/') # fixme
+
+  def regist(self):
+    pass
+    #if self.request.path.find('/regist') == -1:
+    #  if not model.User.all().filter('id =', self.mobile_id()).fetch(1): # fixme:memcached
+    #    self.halt_redirect('/regist/index')
+
+  """ opensocial """
+  def user_id(self):
+    user = model.User.all().filter('id =', self.mobile_id()).fetch(1)
+    if user:
+      return user[0]
+    else:
+      return None
+
+  def user_name(self):
+    pass
+
+  def avaurl(self):
+    return 'http://img.mixi.jp/img/basic/common/noimage_member76.gif'
+
+def repl_guidurl(g):
   tag = g.group(1)
   url = g.group(2)
   if url.find('?') == -1:

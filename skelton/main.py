@@ -5,6 +5,7 @@ import os
 from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
+from gm.ext import RedirectException
 
 class MainHandler(webapp.RequestHandler):
   def get(self):
@@ -27,6 +28,7 @@ class MainHandler(webapp.RequestHandler):
 
   def __error(self):
     self.error(500)
+    self.response.clear()
     self.response.out.write('500 Internal Server Error')
 
   def __dispatch(self):
@@ -44,6 +46,8 @@ class MainHandler(webapp.RequestHandler):
       template = os.path.join(os.path.dirname(__file__), 'app/templates', route['module'], route['action'] + '.html')
       values = c.__dict__
       c.render(template, values)
+    except RedirectException:
+      pass
     except Exception, e:
       logging.error(e)
       self.__error()

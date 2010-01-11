@@ -1,3 +1,5 @@
+#!coding: utf-8
+
 from binascii import a2b_hex, b2a_hex
 import re
 
@@ -2781,19 +2783,6 @@ decode_tbl_softbank = {
   'EE94BE':'2562'
 }
 
-def encode(str, controller):
-  pattern = "\$([0-9]+)\$"
-  if controller.is_docomo:
-    return re.sub(pattern, repl_docomo, str)
-  elif controller.is_ezweb:
-    return re.sub(pattern, repl_kddi, str)
-  elif controller.is_softbank:
-    return re.sub(pattern, repl_softbank, str)
-  return re.sub(pattern, '', str)
-
-def decode(str):
-  pass
-
 def repl_docomo(a):
   return repl(a, 0)
 
@@ -2810,3 +2799,34 @@ def repl(a, carrier):
       return a2b_hex(code)
   return '[?]'
 
+def encode(controller, str):
+  pattern = "\$([0-9]+)\$"
+  if controller.is_docomo:
+    return re.sub(pattern, repl_docomo, str)
+  elif controller.is_ezweb:
+    return re.sub(pattern, repl_kddi, str)
+  elif controller.is_softbank:
+    return re.sub(pattern, repl_softbank, str)
+  return re.sub(pattern, '', str)
+
+def decode(controller, str):
+  result = ''
+  for c in str:
+    encode = None
+    tbl = None
+    if controller.is_docomo:
+      encode = 'utf-8'
+      tbl = decode_tbl_docomo
+    elif controller.is_kddi:
+      encode = 'ms932'
+      tbl = decode_tbl_ezweb
+    else:
+      encode = 'utf-8'
+      tbl = decode_tbl_softbank
+    cu = c.encode(encode)
+    code = b2a_hex(cu)
+    if tbl.has_key(code):
+      result = result + '$' + tbl[code] + '$'
+    else:
+      result = result + cu
+  return unicode(result, encode)
