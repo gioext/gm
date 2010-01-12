@@ -16,7 +16,7 @@ class RedirectException(Exception):
 
 """ Mobile Base Controller """
 class BaseController:
-  def __init__(self, handler):
+  def __init__(self, handler, module, action):
     self.handler = handler
     self.user_agent = handler.request.headers['user-agent']
     self.is_docomo = ua_docomo.match(self.user_agent)
@@ -24,6 +24,8 @@ class BaseController:
     self.is_ezweb = ua_ezweb.match(self.user_agent)
     self.request = handler.request
     self.response = self.handler.response
+    self.module = module
+    self.action = action
 
   def before_filter(self):
     if self.request.method == "GET":
@@ -84,7 +86,7 @@ class BaseController:
 
   def check_csrf(self):
     token = self.request.get('csrf')
-    if token != self.get_csrf_token():
+    if token != self.csrf_token():
       raise "invalid csrf"
 
   def header(self, name):
@@ -121,17 +123,19 @@ class BaseController:
   def guid(self):
     """ fixme path """
     if self.is_docomo and self.request.get('guid') != 'ON':
-      self.halt_redirect(self.request.path)
+      self.redirect(self.request.path)
 
   def required_uid(self):
+    if self.module == 'top':
+      return
     if not self.mobile_id():
-      self.halt_redirect('/') # fixme
+      self.redirect('/') # fixme
 
   def regist(self):
     pass
     #if self.request.path.find('/regist') == -1:
     #  if not model.User.all().filter('id =', self.mobile_id()).fetch(1): # fixme:memcached
-    #    self.halt_redirect('/regist/index')
+    #    self.redirect('/regist/index')
 
   """ opensocial """
   def user_id(self):
