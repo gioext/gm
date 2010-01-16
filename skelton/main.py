@@ -38,7 +38,7 @@ class MainHandler(webapp.RequestHandler):
     try:
       exec("from app.controllers.%s import %s" % (route['module'], controller))
       clazz = eval(controller)
-      c = clazz(self)
+      c = clazz(self, route['module'], route['action'])
       action = getattr(c, "%s_%s" % (method, route['action']), None)
       c.before_filter()
       action()
