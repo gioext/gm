@@ -2,9 +2,6 @@
 
 from gm.ext import BaseController
 
-class TopController(BaseController):
+class MyController(BaseController):
   def get_index(self):
-    pass
-
-  def get_invalid(self):
     pass

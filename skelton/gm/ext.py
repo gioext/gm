@@ -10,8 +10,9 @@ ua_docomo   = re.compile(r'^DoCoMo')
 ua_ezweb    = re.compile(r'^KDDI|^UP.Browser')
 ua_softbank = re.compile(r'^J-PHONE|^Vodafone|^SoftBank')
 
-""" redirece exception """
 class RedirectException(Exception):
+  pass
+class CsrfException(Exception):
   pass
 
 """ Mobile Base Controller """
@@ -28,24 +29,16 @@ class BaseController:
     self.action = action
 
   def before_filter(self):
-    if self.request.method == "GET":
-      self.ipblock()
-      self.guid()
-      self.required_uid()
-      self.regist()
-    elif self.request.method == "POST":
-      self.ipblock()
-      self.required_uid()
-      self.regist()
+    self.ipblock()
+    self.authorization()
+    self.regist()
+    if self.request.method == "POST":
       self.check_csrf()
       if self.is_ezweb:
         self.request.charset = "ms932"
 
   def after_filter(self):
-    if self.request.method == "GET":
-      pass
-    elif self.request.method == "POST":
-      pass
+    pass
 
   def render(self, path, values):
     html = template.render(path, values)
@@ -70,7 +63,7 @@ class BaseController:
       guid = s + 'guid=ON'
 
     self.handler.redirect(url + guid)
-    raise RedirectException
+    raise RedirectException('redirect to %s' % (url))
 
   def attr_key(self, key):
     return "attr:" + key
@@ -82,26 +75,17 @@ class BaseController:
     return memcache.set(self.attr_key(key), value)
 
   def csrf_token(self):
-    return md5.new(csrf_secret + self.mobile_id()).hexdigest();
+    return md5.new(csrf_secret + self.owner_id()).hexdigest();
 
   def check_csrf(self):
     token = self.request.get('csrf')
     if token != self.csrf_token():
-      raise "invalid csrf"
+      raise CsrfException("invalid csrf")
 
   def header(self, name):
     if self.request.headers.has_key(name):
       return self.request.headers[name]
     return None
-
-  def mobile_id(self):
-    if self.is_docomo:
-      return self.header('x-dcmguid')
-    elif self.is_ezweb:
-      return self.header('x-up-subno')
-    elif self.is_softbank:
-      return self.header('x-jphone-uid')
-    return ''
 
   def param(self, key):
     return self.request.get(key)
@@ -110,52 +94,53 @@ class BaseController:
     v = self.param(key)
     return emoji.decode(self, v)
 
-  """ filter """
+  """
+  DoCoMoの場合リンクとフォームのURLにguid=ONをつける
+  """
   def replace_guid(self, str):
     if self.is_docomo:
-      regex = r'(action|href)="/(.*?)"'
-      return re.sub(regex, repl_guidurl, str)
+      def repl_guidurl(g):
+        tag = g.group(1)
+        url = g.group(2)
+        if url.find('?') == -1:
+          s = '?'
+        else:
+          s = '&'
+        return '%s="/%s%s%s"' % (tag, url, s, 'guid=ON')
+      return re.sub(r'(action|href)="/(.*?)"', repl_guidurl, str)
     return str
 
+  """
+  IP制限
+  """
   def ipblock(self):
     pass
 
-  def guid(self):
-    """ fixme path """
-    if self.is_docomo and self.request.get('guid') != 'ON':
-      self.redirect(self.request.path)
-
-  def required_uid(self):
-    if self.module == 'top':
-      return
-    if not self.mobile_id():
-      self.redirect('/') # fixme
-
+  """
+  アプリに登録済みかチェックする
+  未登録の場合は/registへredirect
+  """
   def regist(self):
     pass
-    #if self.request.path.find('/regist') == -1:
-    #  if not model.User.all().filter('id =', self.mobile_id()).fetch(1): # fixme:memcached
-    #    self.redirect('/regist/index')
 
-  """ opensocial """
-  def user_id(self):
-    user = model.User.all().filter('id =', self.mobile_id()).fetch(1)
-    if user:
-      return user[0]
-    else:
-      return None
+  """
+  正当なリクエストかSignatureをチェックする
+  不正の場合は/top/brへredirect
+  """
+  def authorization(self):
+    if (self.module == 'top' and self.action == 'invalid'):
+      return
+    #self.redirect('/top/invalid')
 
-  def user_name(self):
-    pass
+  """
+  Open social owner id
+  """
+  def owner_id(self):
+    return 1234
 
-  def avaurl(self):
-    return 'http://img.mixi.jp/img/basic/common/noimage_member76.gif'
+  def my_person(self):
+    return { 'name': u'Giox', 'avaurl': 'http://img.mixi.jp/img/basic/common/noimage_member76.gif' }
 
-def repl_guidurl(g):
-  tag = g.group(1)
-  url = g.group(2)
-  if url.find('?') == -1:
-    s = '?'
-  else:
-    s = '&'
-  return '%s="/%s%s%s"' % (tag, url, s, 'guid=ON')
+  def my_friend(self):
+    return []
+
