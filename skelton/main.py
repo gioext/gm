@@ -69,7 +69,7 @@ class MainHandler(webapp.RequestHandler):
 
 dirname = os.path.dirname(__file__)
 sys.path.append(dirname)
-template.register_template_library('gm.custom_filter')
+template.register_template_library('gm.helper')
 app = webapp.WSGIApplication([(r'.*', MainHandler)], debug=True)
 
 def main():
