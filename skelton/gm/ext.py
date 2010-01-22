@@ -2,7 +2,10 @@
 
 from google.appengine.api import memcache
 from google.appengine.ext.webapp import template
-import os, re, md5, logging
+import os
+import re
+import md5
+import logging
 import emoji
 
 csrf_secret = "aoiueo"
