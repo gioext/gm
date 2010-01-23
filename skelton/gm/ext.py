@@ -29,7 +29,6 @@ class BaseController:
     self.action = action
 
   def before_filter(self):
-    self.ipblock()
     self.authorization()
     self.regist()
     if self.request.method == "POST":
@@ -111,12 +110,6 @@ class BaseController:
     return str
 
   """
-  IP制限
-  """
-  def ipblock(self):
-    pass
-
-  """
   アプリに登録済みかチェックする
   未登録の場合は/registへredirect
   """
@@ -125,7 +118,7 @@ class BaseController:
 
   """
   正当なリクエストかSignatureをチェックする
-  不正の場合は/top/brへredirect
+  不正の場合は/top/invalidへredirect
   """
   def authorization(self):
     if (self.module == 'top' and self.action == 'invalid'):

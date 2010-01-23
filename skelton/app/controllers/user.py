@@ -1,7 +1,8 @@
 #!coding: utf-8
 
 from gm.ext import BaseController
+import app.models
 
-class MyController(BaseController):
+class UserController(BaseController):
   def get_index(self):
     pass
