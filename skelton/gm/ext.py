@@ -7,6 +7,7 @@ import re
 import md5
 import logging
 import emoji
+import app.models
 
 csrf_secret = "aoiueo"
 ua_docomo   = re.compile(r'^DoCoMo')
@@ -77,7 +78,7 @@ class BaseController:
     return memcache.set(self.attr_key(key), value)
 
   def csrf_token(self):
-    return md5.new(csrf_secret + self.owner_id()).hexdigest();
+    return md5.new(csrf_secret + str(self.owner_id())).hexdigest();
 
   def check_csrf(self):
     token = self.request.get('csrf')
@@ -117,7 +118,8 @@ class BaseController:
   未登録の場合は/registへredirect
   """
   def regist(self):
-    pass
+    if self.module != 'regist' and not self.user():
+      self.redirect('/regist')
 
   """
   正当なリクエストかSignatureをチェックする
@@ -128,15 +130,24 @@ class BaseController:
       return
     #self.redirect('/top/invalid')
 
-  """
-  Open social owner id
-  """
   def owner_id(self):
     return 1234
 
-  def my_person(self):
+  def user(self):
+    return app.models.User.get_by_owner_id(self.owner_id())
+
+class OpenSocial(object):
+  def __init__(self, id):
+    self.id = id
+
+  def get_name(self):
+    return 'Giox'
+
+  def get_person(self):
     return { 'name': u'Giox', 'avaurl': 'http://img.mixi.jp/img/basic/common/noimage_member76.gif' }
 
-  def my_friend(self):
-    return []
+  def get_avaurl(self):
+    return 'http://img.mixi.jp/img/basic/common/noimage_member76.gif'
 
+  def get_friend(self):
+    return []
