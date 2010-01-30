@@ -32,11 +32,11 @@ class BaseController:
     self.response = self.handler.response
     self.module = module
     self.action = action
-    self.my_os = OpenSocial(self.owner_id())
+    #self.my_os = OpenSocial(self.owner_id())
 
   def before_filter(self):
-    Filter.authorization(self)
-    Filter.regist(self)
+    #Filter.authorization(self)
+    #Filter.regist(self)
     Filter.request_charset(self)
 
   def after_filter(self):
@@ -46,7 +46,7 @@ class BaseController:
     html = template.render(path, values)
     html = Filter.output(self, html)
     html = Filter.emoji(self, html)
-    html = Filter.replace_url(self, html)
+    #html = Filter.replace_url(self, html)
     self.response.out.write(html)
 
   def redirect(self, url):
