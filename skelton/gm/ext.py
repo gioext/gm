@@ -6,6 +6,7 @@ import os
 import re
 import md5
 import logging
+import urllib
 import emoji
 import app.models
 
@@ -33,28 +34,18 @@ class BaseController:
     self.action = action
 
   def before_filter(self):
-    self.authorization()
-    self.regist()
-    if self.request.method == "POST":
-      self.check_csrf()
-      if self.is_ezweb:
-        self.request.charset = "ms932"
+    Filter.authorization(self)
+    Filter.regist(self)
+    Filter.request_charset(self)
 
   def after_filter(self):
     pass
 
   def render(self, path, values):
     html = template.render(path, values)
-    if self.is_docomo:
-      content_type = 'application/xhtml+xml; charset=UTF-8'
-    elif self.is_ezweb:
-      content_type = 'text/html; charset=Shift-JIS'
-      html = unicode(html, 'utf-8').encode('ms932')
-    else:
-      content_type = 'text/html; charset=UTF-8'
-    html = emoji.encode(self, html)
-    html = self.replace_guid(html)
-    self.response.headers['Content-Type'] = content_type
+    html = Filter.output(self, html)
+    html = Filter.emoji(self, html)
+    html = Filter.replace_url(self, html)
     self.response.out.write(html)
 
   def redirect(self, url):
@@ -68,23 +59,6 @@ class BaseController:
     self.handler.redirect(url + guid)
     raise RedirectException('redirect to %s' % (url))
 
-  def attr_key(self, key):
-    return "attr:" + key
-
-  def attr_read(self, key):
-    return memcache.get(self.attr_key(key))
-
-  def attr_write(self, key, value):
-    return memcache.set(self.attr_key(key), value)
-
-  def csrf_token(self):
-    return md5.new(csrf_secret + str(self.owner_id())).hexdigest();
-
-  def check_csrf(self):
-    token = self.request.get('csrf')
-    if token != self.csrf_token():
-      raise CsrfException("invalid csrf")
-
   def header(self, name):
     if self.request.headers.has_key(name):
       return self.request.headers[name]
@@ -97,47 +71,21 @@ class BaseController:
     v = self.param(key)
     return emoji.decode(self, v)
 
-  """
-  DoCoMoの場合リンクとフォームのURLにguid=ONをつける
-  """
-  def replace_guid(self, str):
-    if self.is_docomo:
-      def repl_guidurl(g):
-        tag = g.group(1)
-        url = g.group(2)
-        if url.find('?') == -1:
-          s = '?'
-        else:
-          s = '&'
-        return '%s="/%s%s%s"' % (tag, url, s, 'guid=ON')
-      return re.sub(r'(action|href)="/(.*?)"', repl_guidurl, str)
-    return str
-
-  """
-  アプリに登録済みかチェックする
-  未登録の場合は/registへredirect
-  """
-  def regist(self):
-    if self.module != 'regist' and not self.user():
-      self.redirect('/regist')
-
-  """
-  正当なリクエストかSignatureをチェックする
-  不正の場合は/top/invalidへredirect
-  """
-  def authorization(self):
-    if (self.module == 'top' and self.action == 'invalid'):
-      return
-    #self.redirect('/top/invalid')
+  def app_id(self):
+    return self.param('opensocial_app_id')
 
   def owner_id(self):
-    return 1234
+    return self.param('opensocial_owner_id')
 
   def user(self):
     return app.models.User.get_by_owner_id(self.owner_id())
 
+
+#TODO
 class OpenSocial(object):
   def __init__(self, id):
+    if not id:
+      raise Exception("Error opensocial_owner_id")
     self.id = id
 
   def get_name(self):
@@ -147,7 +95,69 @@ class OpenSocial(object):
     return { 'name': u'Giox', 'avaurl': 'http://img.mixi.jp/img/basic/common/noimage_member76.gif' }
 
   def get_avaurl(self):
-    return 'http://img.mixi.jp/img/basic/common/noimage_member76.gif'
+    return 'http://img.mixi.jp/img/basic/common/noimage_member40.gif'
 
   def get_friend(self):
     return []
+
+
+class Filter(object):
+#TODO
+  """
+  正当なリクエストかSignatureをチェックする
+  不正の場合は/top/invalidへredirect
+  """
+  @classmethod
+  def authorization(cls, handler):
+    if (handler.module == 'top' and handler.action == 'invalid'):
+      return
+    
+#TODO
+  """
+  アプリに登録済みかチェックする
+  未登録の場合は/registへredirect
+  """
+  @classmethod
+  def regist(cls, handler):
+    pass
+
+  """
+  AUの場合はms932でリクエストされる
+  """
+  @classmethod
+  def request_charset(cls, handler):
+    if handler.request.method == "POST" and handler.is_ezweb:
+      handler.request.charset = "ms932"
+
+  """
+  ?guid=ON&url=http://...の形にreplace
+  """
+  @classmethod
+  def replace_url(cls, handler, str):
+    def f(g):
+      tag = g.group(1)
+      url = handler.request.host_url + '/' +  g.group(2)
+      return '%s="/?guid=ON&url=%s"' % (tag, urllib.quote(url))
+    return re.sub(r'(action|href)="/(.*?)"', f, str)
+
+  """
+  encodingとcontent-typeを設定
+  """
+  @classmethod
+  def output(cls, handler, html):
+    if handler.is_docomo:
+      content_type = 'application/xhtml+xml; charset=UTF-8'
+    elif handler.is_ezweb:
+      content_type = 'text/html; charset=Shift-JIS'
+      html = unicode(html, 'utf-8').encode('ms932')
+    else:
+      content_type = 'text/html; charset=UTF-8'
+    handler.response.headers['Content-Type'] = content_type
+    return html
+
+  """
+  絵文字変換
+  """
+  @classmethod
+  def emoji(cls, handler, html):
+    return emoji.encode(handler, html)
