@@ -45,7 +45,7 @@ class BaseController:
   def render(self, path, values):
     html = template.render(path, values)
     html = Filter.output(self, html)
-    html = Filter.emoji(self, html)
+    html = Filter.encode_emoji(self, html)
     #html = Filter.replace_url(self, html)
     self.response.out.write(html)
 
@@ -60,34 +60,18 @@ class BaseController:
     self.handler.redirect(url + guid)
     raise RedirectException('redirect to %s' % (url))
 
-  def header(self, name):
-    if self.request.headers.has_key(name):
-      return self.request.headers[name]
-    return None
-
-  def param(self, key):
-    return self.request.get(key)
-
-  def emoji_param(self, key):
-    v = self.param(key)
-    return emoji.decode(self, v)
-
-  def app_id(self):
-    return self.param('opensocial_app_id')
-
-  def owner_id(self):
-    return self.param('opensocial_owner_id')
-
+#TODO move to app/libs
   def user(self):
     return app.models.User.get_by_owner_id(self.owner_id())
 
 
 #TODO
 class OpenSocial(object):
-  def __init__(self, id):
-    if not id:
+  def __init__(self, handler):
+    self.app_id = handler.request.get('opensocial_app_id')
+    self.owner_id = handler.request.get('opensocial_owner_id')
+    if not (self.app_id and self.owner_id):
       raise Exception("Error opensocial_owner_id")
-    self.id = id
 
   def get_name(self):
     return 'Giox'
@@ -160,5 +144,12 @@ class Filter(object):
   絵文字変換
   """
   @classmethod
-  def emoji(cls, handler, html):
+  def encode_emoji(cls, handler, html):
     return emoji.encode(handler, html)
+
+  """
+  絵文字逆変換
+  """
+  @classmethod
+  def decode_emoji(cls, handler, html):
+    return emoji.decode(handler, html)
