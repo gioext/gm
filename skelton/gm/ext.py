@@ -32,6 +32,7 @@ class BaseController:
     self.response = self.handler.response
     self.module = module
     self.action = action
+    self.my_os = OpenSocial(self.owner_id())
 
   def before_filter(self):
     Filter.authorization(self)
