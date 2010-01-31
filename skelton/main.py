@@ -6,6 +6,7 @@ from google.appengine.ext import webapp
 from google.appengine.ext.webapp import template
 from google.appengine.ext.webapp.util import run_wsgi_app
 from gm.ext import RedirectException
+from gm.ext import AuthException
 
 class MainHandler(webapp.RequestHandler):
   def get(self):
@@ -42,12 +43,14 @@ class MainHandler(webapp.RequestHandler):
       action = getattr(c, "%s_%s" % (method, route['action']), None)
       c.before_filter()
       action()
-      c.after_filter()
       template = os.path.join(os.path.dirname(__file__), 'app/templates', route['module'], route['action'] + '.html')
       values = c.__dict__
       c.render(template, values)
     except RedirectException:
       pass
+    except AuthException, e:
+      logging.error(e)
+      self.response.out.write('<html><head><title>invalid</title></head><body>invalid</body></html>')
     except Exception, e:
       logging.error(e)
       self.__error()

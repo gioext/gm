@@ -19,6 +19,8 @@ class RedirectException(Exception):
   pass
 class CsrfException(Exception):
   pass
+class AuthException(Exception):
+  pass
 
 """ Mobile Base Controller """
 class BaseController:
@@ -32,45 +34,32 @@ class BaseController:
     self.response = self.handler.response
     self.module = module
     self.action = action
-    #self.my_os = OpenSocial(self.owner_id())
+    self._owner_id = handler.request.get('opensocial_owner_id')
+    self._app_id = handler.request.get('opensocial_app_id')
 
   def before_filter(self):
-    #Filter.authorization(self)
-    #Filter.regist(self)
+    Filter.authorization(self)
+    Filter.regist(self)
     Filter.request_charset(self)
-
-  def after_filter(self):
-    pass
 
   def render(self, path, values):
     html = template.render(path, values)
     html = Filter.output(self, html)
     html = Filter.encode_emoji(self, html)
-    #html = Filter.replace_url(self, html)
+    html = Filter.replace_url(self, html)
     self.response.out.write(html)
 
+#TODO
   def redirect(self, url):
-    guid = ''
-    if self.is_docomo:
-      s = '&'
-      if url.find('?') == -1:
-        s = '?'
-      guid = s + 'guid=ON'
-
-    self.handler.redirect(url + guid)
+    self.handler.redirect(url)
     raise RedirectException('redirect to %s' % (url))
-
-#TODO move to app/libs
-  def user(self):
-    return app.models.User.get_by_owner_id(self.owner_id())
 
 
 #TODO
 class OpenSocial(object):
-  def __init__(self, handler):
-    self.app_id = handler.request.get('opensocial_app_id')
-    self.owner_id = handler.request.get('opensocial_owner_id')
-    if not (self.app_id and self.owner_id):
+  def __init__(self, id):
+    self.id = id
+    if not self.id:
       raise Exception("Error opensocial_owner_id")
 
   def get_name(self):
@@ -90,21 +79,26 @@ class Filter(object):
 #TODO
   """
   正当なリクエストかSignatureをチェックする
-  不正の場合は/top/invalidへredirect
   """
   @classmethod
   def authorization(cls, handler):
-    if (handler.module == 'top' and handler.action == 'invalid'):
+    if handler.module == 'top' and handler.action == 'invalid':
       return
-    
-#TODO
+    if not handler.request.headers.has_key('authorization'):
+      raise AuthException("No authorization signature.")
+    logging.info("Authorization Signature: " + handler.request.headers['authorization'])
+
+#TODO:cache
   """
   アプリに登録済みかチェックする
   未登録の場合は/registへredirect
   """
   @classmethod
   def regist(cls, handler):
-    pass
+    return
+    user = app.models.User.get_by_owner_id(handler._owner_id)
+    if handler.module != 'regist' and not user:
+      handler.redirect('/regist')
 
   """
   AUの場合はms932でリクエストされる
@@ -122,7 +116,7 @@ class Filter(object):
     def f(g):
       tag = g.group(1)
       url = handler.request.host_url + '/' +  g.group(2)
-      return '%s="/?guid=ON&url=%s"' % (tag, urllib.quote(url))
+      return '%s="?guid=ON&url=%s"' % (tag, urllib.quote(url))
     return re.sub(r'(action|href)="/(.*?)"', f, str)
 
   """
